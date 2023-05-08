@@ -13,11 +13,13 @@ LAZYMC_PATH=lazymc
 FORGE_DOWNLOAD_LINK=https://maven.minecraftforge.net/net/minecraftforge/forge/${MINECRAFT_VERSION}-${FORGE_VERSION}/forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-installer.jar
 FORGE_INSTALLER_PATH=installer.jar
 
+
 # ┏━━━━━━━┓
 # ┃ UTILS ┃
 # ┗━━━━━━━┛
-# S_H="\033[33;1m"
-# S_R="\033[0m"
+S_H1="\033[33;1m"
+S_H2="\033[36;1m"
+S_R="\033[0m"
 
 # ========= PROCESS SPINNER UTIL =========
 # -- $1 is the message
@@ -89,18 +91,20 @@ function install_forge {
 # ┏━━━━━━━━━━━━━━━━━━━┓
 # ┃ MAIN SETUP SCRIPT ┃
 # ┗━━━━━━━━━━━━━━━━━━━┛
-# echo -e "${S_H}LAZYFORGE-DOCKER STARTING UP!!!${S_R}"
+echo -e "${S_H1}LAZYFORGE-DOCKER STARTING UP!!!${S_R}"
 
-if [ -L ${LAZYMC_PATH} ]
+echo -e "\n${S_H2}CHECK LAZYMC${S_R}"
+if [ -f "${LAZYMC_PATH}" ]
   then
     echo "Lazymc installed"
   else
     echo "Lazymc not detected. Downloading Lazymc"
     download_lazymc
 fi
-if [ -L ${SERVER_DIR}/run.sh ]
+echo -e "\n${S_H2}CHECK FORGE${S_R}"
+if [ -f "${SERVER_DIR}/run.sh" ]
   then
-    echo "Starting server"
+    echo "Forge installed"
   else
     echo "No run.sh script detected. Installing Forge"
     download_forge
