@@ -7,11 +7,15 @@ SERVER_DIR=server
 LAZYMC_VERSION=0.2.10
 FORGE_VERSION=43.2.8
 
-LAZYMC_DOWNLOAD_LINK=https://github.com/timvisee/lazymc/releases/download/v${LAZYMC_VERSION}/lazymc-v${LAZYMC_VERSION}-linux-x64
+ARCH=$(arch)
+if [ "$ARCH" == "x86_64" ]; then ARCH=x64; fi
+
+LAZYMC_DOWNLOAD_LINK=https://github.com/timvisee/lazymc/releases/download/v${LAZYMC_VERSION}/lazymc-v${LAZYMC_VERSION}-linux-${ARCH}
 LAZYMC_PATH=lazymc
 
 FORGE_DOWNLOAD_LINK=https://maven.minecraftforge.net/net/minecraftforge/forge/${MINECRAFT_VERSION}-${FORGE_VERSION}/forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-installer.jar
 FORGE_INSTALLER_PATH=installer.jar
+
 
 
 # ┏━━━━━━━┓
@@ -46,6 +50,7 @@ function download_lazymc {
   if wget ${LAZYMC_DOWNLOAD_LINK} -q --show-progress -O ${LAZYMC_PATH}
     then 
       echo "Lazymc downloaded succesfully"
+      chmod a+x ${LAZYMC_PATH}
     else 
       echo "Lazymc download failed. Abort..."
       exit 10
@@ -61,6 +66,7 @@ function download_forge {
   if wget ${FORGE_DOWNLOAD_LINK} -q --show-progress -O ${FORGE_INSTALLER_PATH}
     then 
       echo "Forge downloaded sucessfully"
+      chmod a+x ${LAZYMC_PATH}
     else 
       echo "Forge download failed. Abort..."
       exit 20
@@ -91,6 +97,7 @@ function install_forge {
 # ┏━━━━━━━━━━━━━━━━━━━┓
 # ┃ MAIN SETUP SCRIPT ┃
 # ┗━━━━━━━━━━━━━━━━━━━┛
+echo ${ARCH}
 echo -e "${S_H1}LAZYFORGE-DOCKER STARTING UP!!!${S_R}"
 
 echo -e "\n${S_H2}CHECK LAZYMC${S_R}"
@@ -104,7 +111,7 @@ fi
 echo -e "\n${S_H2}CHECK FORGE${S_R}"
 if [ -f "${SERVER_DIR}/run.sh" ]
   then
-    echo "Forge installed"
+    echo "Found run.sh"
   else
     echo "No run.sh script detected. Installing Forge"
     download_forge
