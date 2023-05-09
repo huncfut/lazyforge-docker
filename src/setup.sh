@@ -13,7 +13,7 @@ ARCH=$(arch)
 if [ "$ARCH" == "x86_64" ]; then ARCH=x64; fi
 
 LAZYMC_DOWNLOAD_LINK=https://github.com/timvisee/lazymc/releases/download/v${LAZYMC_VERSION}/lazymc-v${LAZYMC_VERSION}-linux-${ARCH}
-LAZYMC_PATH=lazymc
+LAZYMC_PATH=${SERVER_DIR}/lazymc
 LAZYMC_CONFIG_PATH=${LAZYMC_PATH}.toml
 START_SERVER_PATH=${SERVER_DIR}/start_server.sh
 
@@ -70,8 +70,8 @@ function config_lazymc {
 
   # -- SERVER
   echo "[server]" >> ${LAZYMC_CONFIG_PATH}
-  echo "directory = \"${SERVER_DIR}\"" >> ${LAZYMC_CONFIG_PATH}
-  echo "command = \"bash start_server.sh\"" >> ${LAZYMC_CONFIG_PATH}
+  echo "directory = \"../server\"" >> ${LAZYMC_CONFIG_PATH}
+  echo "command = \"$(cat ${SERVER_DIR}/run.sh | grep -v ^# | sed "s/\".*/--nogui \&/")\"" >> ${LAZYMC_CONFIG_PATH}
   echo "forge = true" >> ${LAZYMC_CONFIG_PATH}
 
   # -- MOTD
@@ -90,9 +90,11 @@ function create_starting_script {
   echo "trap 'kill -TERM \$PID' TERM INT" > ${START_SERVER_PATH}
   cat ${SERVER_DIR}/run.sh | grep -v ^# | sed "s/\".*/--nogui \&/" >> ${START_SERVER_PATH}
   echo 'PID=$!' >> ${START_SERVER_PATH}
+  echo 'echo $PID' >> ${START_SERVER_PATH}
   echo 'wait $PID' >> ${START_SERVER_PATH}
   echo 'trap - TERM INT' >> ${START_SERVER_PATH}
   echo 'wait $PID' >> ${START_SERVER_PATH}
+  chmod a+rwx ${START_SERVER_PATH}
 }
 
 # ┏━━━━━━━━━━━━━━━━━┓
@@ -173,4 +175,5 @@ if [ -f "${START_SERVER_PATH}" ]
 fi
 
 echo "Starting UP!"
+cd server
 exec ./lazymc
