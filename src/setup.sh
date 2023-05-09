@@ -2,12 +2,15 @@
 # ┏━━━━━┓
 # ┃ ENV ┃
 # ┗━━━━━┛
-MINECRAFT_VERSION=1.19.2
+MINECRAFT_VERSION=${MINECRAFT_VERSION:-"1.19.2"}
 SERVER_DIR=server
-LAZYMC_VERSION=0.2.10
-FORGE_VERSION=43.2.8
-PROTOCOL=760
-EULA=true
+LAZYMC_VERSION=${LAZYMC_VERSION:-"0.2.10"}
+FORGE_VERSION=${FORGE_VERSION:-"43.2.8"}
+PROTOCOL=${PROTOCOL:-"760"}
+EULA=${EULA:-"false"}
+MEMORY_MIN=${MEMORY_MIN:-${MEMORY:-"1G"}}
+MEMORY_MAX=${MEMORY_MAX:-${MEMORY:-"1G"}}
+
 
 ARCH=$(arch)
 if [ "$ARCH" == "x86_64" ]; then ARCH=x64; fi
@@ -19,6 +22,7 @@ START_SERVER_PATH=${SERVER_DIR}/start_server.sh
 
 FORGE_DOWNLOAD_LINK=https://maven.minecraftforge.net/net/minecraftforge/forge/${MINECRAFT_VERSION}-${FORGE_VERSION}/forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-installer.jar
 FORGE_INSTALLER_PATH=installer.jar
+FORGE_ARGS_PATH=${SERVER_DIR}/user_jvm_args.txt
 
 
 
@@ -36,13 +40,22 @@ function process_spinner {
   SPINNER=⠧⠏⠛⠹⠼⠶
   i=0
 
-  while ps -p $2 > /dev/null; do
-    if [ $i -eq ${#SPINNER} ]; then i=0; fi
-    echo -ne "\r$1 ${SPINNER:$i:1}"
-    sleep 0.1
-    ((i++))
-  done
-  echo -e "\r$1: DONE"
+  if [ "$COMPOSE_MODE" == "true" ]
+    then
+      echo "$1"
+      wait $2
+      echo "$1: DONE"
+    else
+      while ps -p $2 > /dev/null; do
+        if [ $i -eq ${#SPINNER} ]; then i=0; fi
+        echo -ne "\r$1 ${SPINNER:$i:1}"
+        sleep 0.1
+        ((i++))
+      done
+      echo -e "\r$1: DONE"
+  fi
+
+  
 }
 
 
@@ -70,8 +83,8 @@ function config_lazymc {
 
   # -- SERVER
   echo "[server]" >> ${LAZYMC_CONFIG_PATH}
-  echo "directory = \"../server\"" >> ${LAZYMC_CONFIG_PATH}
-  echo "command = \"$(cat ${SERVER_DIR}/run.sh | grep -v ^# | sed "s/\".*/--nogui \&/")\"" >> ${LAZYMC_CONFIG_PATH}
+  echo "directory = \".\"" >> ${LAZYMC_CONFIG_PATH}
+  echo "command = \"$(cat ${SERVER_DIR}/run.sh | grep -v ^# | sed "s/\".*/--nogui/") >> server.log\"" >> ${LAZYMC_CONFIG_PATH}
   echo "forge = true" >> ${LAZYMC_CONFIG_PATH}
 
   # -- MOTD
@@ -85,17 +98,6 @@ function config_lazymc {
   echo "version = \"${LAZYMC_VERSION}\"" >> ${LAZYMC_CONFIG_PATH}
 }
 
-# ========= CREATE STARTING SCRIPT =========
-function create_starting_script {
-  echo "trap 'kill -TERM \$PID' TERM INT" > ${START_SERVER_PATH}
-  cat ${SERVER_DIR}/run.sh | grep -v ^# | sed "s/\".*/--nogui \&/" >> ${START_SERVER_PATH}
-  echo 'PID=$!' >> ${START_SERVER_PATH}
-  echo 'echo $PID' >> ${START_SERVER_PATH}
-  echo 'wait $PID' >> ${START_SERVER_PATH}
-  echo 'trap - TERM INT' >> ${START_SERVER_PATH}
-  echo 'wait $PID' >> ${START_SERVER_PATH}
-  chmod a+rwx ${START_SERVER_PATH}
-}
 
 # ┏━━━━━━━━━━━━━━━━━┓
 # ┃ MINECRAFT FORGE ┃
@@ -113,11 +115,8 @@ function download_forge {
 
 # ========= INSTALL FORGE =========
 function install_forge {
-  # Create server directory
-  if [ ! -d ${SERVER_DIR} ]; then mkdir ${SERVER_DIR}; fi
-
   # Run Forge installer inside server directory
-  java -jar ${FORGE_INSTALLER_PATH} --installServer ${SERVER_DIR} > /dev/null & process_spinner "Installing Forge" "$!"
+  java -jar ${FORGE_INSTALLER_PATH} --installServer ${SERVER_DIR} & process_spinner "Installing Forge" "$!"
 
   # Determine whether successful
   if [ $? -eq 0 ];
@@ -131,11 +130,28 @@ function install_forge {
   fi
 }
 
+# ========= GENERATE FORGE ARGS =========
+function gen_forge_args {
+  echo "-Xms${MEMORY_MIN} -Xmx${MEMORY_MAX}" > ${FORGE_ARGS_PATH}
+}
+
 
 # ┏━━━━━━━━━━━━━━━━━━━┓
 # ┃ MAIN SETUP SCRIPT ┃
 # ┗━━━━━━━━━━━━━━━━━━━┛
 echo -e "${S_H1}LAZYFORGE-DOCKER STARTING UP!!!${S_R}"
+
+# -- Create server directory
+if [ ! -d ${SERVER_DIR} ]; then mkdir ${SERVER_DIR}; fi
+
+#  -- EULA
+if [ "$EULA" == "true" ]
+  then
+    echo "eula=${EULA}" > ${SERVER_DIR}/eula.txt
+  else
+    echo -e "\nYou need to accept minecraft's EULA (by setting enviroment EULA=true)"
+    exit 100
+fi
 
 # -- FORGE
 echo -e "\n${S_H2}CHECK FORGE${S_R}"
@@ -146,9 +162,10 @@ if [ -f "${SERVER_DIR}/run.sh" ]
     echo "No run.sh script detected. Installing Forge"
     download_forge
     install_forge
-    echo "eula=${EULA}" > ${SERVER_DIR}/eula.txt
-    touch ${SERVER_DIR}/server.properties
 fi
+
+gen_forge_args
+touch ${SERVER_DIR}/server.properties
 
 # -- LAZYMC
 echo -e "\n${S_H2}CHECK LAZYMC${S_R}"
@@ -166,14 +183,7 @@ if [ -f "${LAZYMC_CONFIG_PATH}" ]
     echo "Creating lazymc config"
     config_lazymc
 fi
-if [ -f "${START_SERVER_PATH}" ]
-  then
-    echo "Starting script found"
-  else
-    echo "Creating startup script"
-    create_starting_script
-fi
 
 echo "Starting UP!"
-cd server
+cd ${SERVER_DIR}
 exec ./lazymc
